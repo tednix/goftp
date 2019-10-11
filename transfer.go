@@ -175,6 +175,7 @@ func (c *Client) transferFromOffset(path string, dest io.Writer, src io.Reader, 
 
 	err = pconn.sendCommandExpected(replyGroupPreliminaryReply, "%s %s", cmd, path)
 	if err != nil {
+		pconn.debug("error sending command: %s", err)
 		return 0, err
 	}
 
@@ -193,9 +194,16 @@ func (c *Client) transferFromOffset(path string, dest io.Writer, src io.Reader, 
 		src = dc
 	}
 
+	if src == nil {
+		pconn.debug("src is nil")
+	}
+	if dest == nil {
+		pconn.debug("dest is nil")
+	}
 	n, err := io.Copy(dest, src)
 
 	if err != nil {
+		pconn.debug("error copying data: %s", err)
 		pconn.broken = true
 		return n, err
 	}
