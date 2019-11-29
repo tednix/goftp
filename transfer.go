@@ -164,6 +164,16 @@ func (c *Client) transferFromOffset(path string, dest io.Writer, src io.Reader, 
 		return 0, err
 	}
 
+	
+	dc, err := connGetter()
+	if err != nil {
+		pconn.debug("error getting data connection: %s", err)
+		return 0, err
+	}
+
+	// to catch early returns
+	defer dc.Close()
+	
 	var cmd string
 	if dest == nil && src != nil {
 		cmd = "STOR"
@@ -178,14 +188,6 @@ func (c *Client) transferFromOffset(path string, dest io.Writer, src io.Reader, 
 		return 0, err
 	}
 
-	dc, err := connGetter()
-	if err != nil {
-		pconn.debug("error getting data connection: %s", err)
-		return 0, err
-	}
-
-	// to catch early returns
-	defer dc.Close()
 
 	if dest == nil {
 		dest = dc
