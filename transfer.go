@@ -200,7 +200,7 @@ func (c *Client) transferFromOffset(path string, dest io.Writer, src io.Reader, 
 	if dest == nil {
 		pconn.debug("dest is nil")
 	}
-	n, err := io.Copy(dest, src)
+	n, cpErr := io.Copy(dest, src)
 	pconn.debug("byte count copied: %d", n)
 
 	err = dc.Close()
@@ -215,7 +215,7 @@ func (c *Client) transferFromOffset(path string, dest io.Writer, src io.Reader, 
 	} else if cpErr != nil {
 		pconn.debug("error copying data: %s", cpErr)
 		pconn.broken = true
-		return n, cpEerr
+		return n, cpErr
 	}
 
 	if !positiveCompletionReply(code) {
