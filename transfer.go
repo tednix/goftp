@@ -203,21 +203,19 @@ func (c *Client) transferFromOffset(path string, dest io.Writer, src io.Reader, 
 	n, err := io.Copy(dest, src)
 	pconn.debug("byte count copied: %d", n)
 
-	if err != nil {
-		pconn.debug("error copying data: %s", err)
-		pconn.broken = true
-		return n, err
-	}
-
 	err = dc.Close()
 	if err != nil {
 		pconn.debug("error closing data connection: %s", err)
 	}
 
-	code, msg, err := pconn.readResponse()
-	if err != nil {
-		pconn.debug("error reading response after %s: %s", cmd, err)
-		return n, err
+	code, msg, respErr := pconn.readResponse()
+	if respErr != nil {
+		pconn.debug("error reading response after %s: %s", cmd, respErr)
+		return n, respErr
+	} else if cpErr != nil {
+		pconn.debug("error copying data: %s", cpErr)
+		pconn.broken = true
+		return n, cpEerr
 	}
 
 	if !positiveCompletionReply(code) {
