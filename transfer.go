@@ -7,7 +7,6 @@ package goftp
 import (
 	"fmt"
 	"io"
-	"os"
 	"strconv"
 )
 
@@ -90,7 +89,7 @@ func (c *Client) Store(path string, src io.Reader) error {
 				}
 			}
 
-			_, seekErr := seeker.Seek(size, os.SEEK_SET)
+			_, seekErr := seeker.Seek(size, io.SeekStart)
 			if seekErr != nil {
 				c.debug("failed seeking to %d while resuming upload to %s: %s",
 					size,
@@ -164,7 +163,6 @@ func (c *Client) transferFromOffset(path string, dest io.Writer, src io.Reader, 
 		return 0, err
 	}
 
-	
 	dc, err := connGetter()
 	if err != nil {
 		pconn.debug("error getting data connection: %s", err)
@@ -173,7 +171,7 @@ func (c *Client) transferFromOffset(path string, dest io.Writer, src io.Reader, 
 
 	// to catch early returns
 	defer dc.Close()
-	
+
 	var cmd string
 	if dest == nil && src != nil {
 		cmd = "STOR"
@@ -188,7 +186,6 @@ func (c *Client) transferFromOffset(path string, dest io.Writer, src io.Reader, 
 		pconn.debug("error sending command: %s", err)
 		return 0, err
 	}
-
 
 	if dest == nil {
 		dest = dc
