@@ -123,6 +123,9 @@ func (pconn *persistentConn) sendCommandExpected(expected int, f string, args ..
 	}
 
 	if !ok {
+		if code == replyConnectionClosed || code == replyServiceNotAvailable {
+			pconn.broken = true
+		}
 		return ftpError{code: code, msg: msg}
 	}
 
