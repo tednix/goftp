@@ -55,10 +55,13 @@ func (c *Client) Retrieve(path string, dest io.Writer) error {
 // Store bytes read from "src" into file "path" on the server. If the
 // server supports resuming stream transfers and "src" is an io.Seeker
 // (*os.File is an io.Seeker), Store will continue resuming a failed upload
-// as long as it continues making progress. Store will not attempt to
-// resume an upload if the client is connected to multiple servers. Store
-// will also verify the remote file's size after the transfer if the server
-// supports the SIZE command.
+// as long as the server-reported file size keeps advancing between
+// attempts. If the server persists nothing between two attempts (e.g. it
+// answers every STOR with "451 Failure writing to local file" because its
+// disk is full), Store returns the error instead of resuming forever.
+// Store will not attempt to resume an upload if the client is connected
+// to multiple servers. Store will also verify the remote file's size after
+// the transfer if the server supports the SIZE command.
 func (c *Client) Store(path string, src io.Reader) error {
 
 	canResume := len(c.hosts) == 1 && c.canResume()
@@ -72,6 +75,9 @@ func (c *Client) Store(path string, src io.Reader) error {
 		bytesSoFar int64
 		err        error
 		n          int64
+		// server-confirmed persisted size after the previous failed
+		// attempt; -1 means no failed attempt yet
+		lastConfirmedSize int64 = -1
 	)
 	for {
 		if bytesSoFar > 0 {
@@ -88,6 +94,26 @@ func (c *Client) Store(path string, src io.Reader) error {
 					temporary: true,
 				}
 			}
+
+			// "progress" must be durable: bytes we pushed over the wire
+			// (n > 0) don't count if the server didn't persist them. If
+			// the confirmed size hasn't advanced since the last failed
+			// attempt, resuming would just retry the same transfer
+			// indefinitely.
+			if size <= lastConfirmedSize {
+				suffix := fmt.Sprintf("(no upload progress: server still has %d bytes after retry)", size)
+				if fe, ok := err.(ftpError); ok {
+					// keep the original reply code visible via Code()
+					fe.msg = fmt.Sprintf("%s %s", fe.msg, suffix)
+					fe.temporary = true
+					return fe
+				}
+				return ftpError{
+					err:       fmt.Errorf("%s %s", err, suffix),
+					temporary: true,
+				}
+			}
+			lastConfirmedSize = size
 
 			_, seekErr := seeker.Seek(size, io.SeekStart)
 			if seekErr != nil {
